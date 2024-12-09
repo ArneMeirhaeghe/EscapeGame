@@ -1,0 +1,101 @@
+.grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
+	grid-template-rows: 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
+	gap: 20px 20px;
+	grid-auto-flow: row;
+	grid-template-areas:
+		"Title unknown1 unknown1 game_status game_status current_challenge control-panel"
+		"description unknown1 unknown1 timer timer current_challenge controls"
+		"description unknown1 unknown1 timer timer current_challenge controls"
+		"unknown2 challenge1 Challenge2 challenge3 Challenge4 challenge5 controls"
+		"unknown2 challenge1 Challenge2 challenge3 Challenge4 challenge5 unknown3"
+		"unknown2 challenge1 Challenge2 challenge3 Challenge4 challenge5 unknown3"
+		"terminal challenge1 Challenge2 challenge3 Challenge4 challenge5 unknown3"
+		"terminal video_feed video_feed video_feed unknown4 unknown4 unknown3"
+		"terminal video_feed video_feed video_feed unknown4 unknown4 unknown3"
+		"terminal video_feed video_feed video_feed unknown4 unknown4 unknown3";
+
+	height: 100%;
+	padding: 20px;
+}
+
+.Title {
+	grid-area: Title;
+}
+
+.description {
+	grid-area: description;
+}
+
+.control-panel {
+	grid-area: control-panel;
+}
+
+.game_status {
+	grid-area: game_status;
+}
+
+.terminal {
+	grid-area: terminal;
+}
+
+.challenge1 {
+	grid-area: challenge1;
+}
+
+.challenge2 {
+	grid-area: Challenge2;
+}
+
+.challenge3 {
+	grid-area: challenge3;
+}
+
+.challenge4 {
+	grid-area: Challenge4;
+}
+
+.challenge5 {
+	grid-area: challenge5;
+}
+
+.current_challenge {
+	grid-area: current_challenge;
+}
+
+.timer {
+	grid-area: timer;
+	font-weight: bold;
+	font-style: italic;
+	text-shadow: 0px 0px 9px rgba(0, 243, 138, 0.49);
+}
+
+.video_feed {
+	grid-area: video_feed;
+}
+
+.controls {
+	grid-area: controls;
+}
+
+.unknown1 {
+	grid-area: unknown1;
+}
+
+.unknown2 {
+	grid-area: unknown2;
+}
+
+.unknown3 {
+	grid-area: unknown3;
+}
+
+.unknown4 {
+	grid-area: unknown4;
+}
+
+/* all children of grid background color */
+.grid > * {
+	background-color: #07140e;
+}
