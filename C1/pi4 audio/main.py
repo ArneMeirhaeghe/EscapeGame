@@ -4,117 +4,197 @@ import sounddevice as sd
 import soundfile as sf
 import threading
 import time
+import json
 
 # Configuratie
-MQTT_BROKER = "10.3.141.1"  # Pas dit aan naar jouw MQTT-broker IP
-TOPIC = "audio/noise_levels"
+MQTT_BROKER = "192.168.1.100"
+MQTT_PORT = 1883
+TOPIC_VALUES = "potentiometer/values"
+TOPIC_CONTROL = "mqtt/defcon/control"
+TOPIC_CH1_CONTROL = "mqtt/defcon/ch1/control"
+TOPIC_CH1_STATUS = "mqtt/defcon/ch1/status"
+AUDIO_FILE = "audio/bingbingbong.wav"
 
-AUDIO_FILE = 'audio/bingbingbong.wav'
-
-# Doelwaarden voor de potentiometers
-TARGET_VALUES = [500, 500]  # Pas deze aan naar de correcte waarden
-TOLERANCE = 10  # Toegestane afwijking
-CORRECT_POSITION_DURATION = 3  # Tijd in seconden dat de potentiometers correct moeten staan
+# Parameters
+TARGET_POT1 = 0  # Pas aan naar de gewenste doelwaarde
+TARGET_POT2 = 0  # Pas aan naar de gewenste doelwaarde
+TOLERANCE_RANGE = 200
+REQUIRED_TIME = 3  # Aantal seconden binnen tolerantie voor ruisverdwijning
+VOLUME_SCALE = 1.0  # Vaste luidheid voor audio
 
 # Globale variabelen
-current_noise_levels = [1.0, 1.0]  # Initiële ruisniveaus
-pot_values = [0, 0]  # Huidige potentiometerwaarden
-correct_position_start_time = None
+pot1_value = pot2_value = 0
+stop_event = threading.Event()
+active_event = threading.Event()
+correct_position_start = None  # Tijdstip waarop potentiometers binnen tolerantie kwamen
 
-# Audiobestand laden
-data, fs = sf.read(AUDIO_FILE, dtype='float32')
-audio_len = len(data)
+def mqtt_on_message(client, userdata, message):
+    """
+    Callback voor MQTT-berichten.
+    Verwerkt potentiometerwaarden en controlecommands.
+    """
+    global pot1_value, pot2_value, stop_event, active_event, correct_position_start
+    topic = message.topic
+    payload = message.payload.decode('utf-8').strip()
 
-# Ruis genereren
-def generate_noise(length):
-    return np.random.normal(0, 0.1, size=(length, data.shape[1]))
-
-noise1 = generate_noise(audio_len)
-noise2 = generate_noise(audio_len)
-
-# Callback functie voor MQTT-berichten
-def on_message(client, userdata, msg):
-    global current_noise_levels, pot_values, correct_position_start_time
     try:
-        message = msg.payload.decode('utf-8')
-        values = message.split(',')
-        if len(values) == 2:
-            pot1, pot2 = int(values[0]), int(values[1])
-            pot_values = [pot1, pot2]
-
-            # Ruisniveaus bijwerken op basis van potentiometerwaarden
-            current_noise_levels = [1 - (pot1 / 1023), 1 - (pot2 / 1023)]
-
-            # Controleren of potentiometers in de juiste positie staan
-            if (abs(pot1 - TARGET_VALUES[0]) <= TOLERANCE and
-                abs(pot2 - TARGET_VALUES[1]) <= TOLERANCE):
-                if correct_position_start_time is None:
-                    correct_position_start_time = time.time()
-                elif time.time() - correct_position_start_time >= CORRECT_POSITION_DURATION:
-                    # Ruis verwijderen
-                    current_noise_levels = [0.0, 0.0]
-            else:
-                correct_position_start_time = None
+        if topic == TOPIC_VALUES:
+            pot1_value, pot2_value = map(int, payload.split(','))
+        elif topic == TOPIC_CONTROL:
+            command = json.loads(payload).get("command", "").lower()
+            if command == "start":
+                stop_event.clear()
+                active_event.set()
+                correct_position_start = None
+                print("[MQTT] Start command ontvangen")
+            elif command == "reset":
+                stop_event.set()
+                active_event.clear()
+                correct_position_start = None
+                print("[MQTT] Reset command ontvangen - Wacht op start")
+        elif topic == TOPIC_CH1_CONTROL:
+            command = json.loads(payload).get("control", "").lower()
+            print(f"[MQTT] Ontvangen control commando op {TOPIC_CH1_CONTROL}: {command}")
         else:
-            print("Ongeldig berichtformaat ontvangen")
-    except Exception as e:
-        print(f"Fout bij het verwerken van het bericht: {e}")
+            print(f"[MQTT] Onbekend topic of command: {topic}")
+    except (json.JSONDecodeError, ValueError) as e:
+        print(f"[Error] Fout bij het verwerken van MQTT payload: {e}")
 
-# Audio callback functie
-def audio_callback(outdata, frames, time_info, status):
-    global current_noise_levels
-    start_idx = audio_callback.current_pos
-    end_idx = start_idx + frames
+def is_within_tolerance():
+    """
+    Controleer of beide potentiometerwaarden binnen de tolerantie zijn.
+    """
+    within_pot1 = abs(pot1_value - TARGET_POT1) <= TOLERANCE_RANGE
+    within_pot2 = abs(pot2_value - TARGET_POT2) <= TOLERANCE_RANGE
+    return within_pot1 and within_pot2
 
-    if end_idx <= audio_len:
-        audio_chunk = data[start_idx:end_idx]
-        noise_chunk1 = noise1[start_idx:end_idx] * current_noise_levels[0]
-        noise_chunk2 = noise2[start_idx:end_idx] * current_noise_levels[1]
-        noisy_audio = audio_chunk + noise_chunk1 + noise_chunk2
-        outdata[:] = noisy_audio
-        audio_callback.current_pos += frames
-    else:
-        # Audio laten loopen
-        frames_remaining = audio_len - start_idx
-        audio_chunk1 = data[start_idx:audio_len]
-        audio_chunk2 = data[0:end_idx - audio_len]
-        audio_chunk = np.concatenate((audio_chunk1, audio_chunk2), axis=0)
+def calculate_noise_level():
+    """
+    Bereken het ruisniveau op basis van de afstand van de potentiometerwaarden tot hun doelwaarden.
+    """
+    max_distance = 4095
+    distance_pot1 = abs(pot1_value - TARGET_POT1)
+    distance_pot2 = abs(pot2_value - TARGET_POT2)
 
-        noise_chunk1a = noise1[start_idx:audio_len] * current_noise_levels[0]
-        noise_chunk1b = noise1[0:end_idx - audio_len] * current_noise_levels[0]
-        noise_chunk1 = np.concatenate((noise_chunk1a, noise_chunk1b), axis=0)
+    normalized_distance_pot1 = distance_pot1 / max_distance
+    normalized_distance_pot2 = distance_pot2 / max_distance
 
-        noise_chunk2a = noise2[start_idx:audio_len] * current_noise_levels[1]
-        noise_chunk2b = noise2[0:end_idx - audio_len] * current_noise_levels[1]
-        noise_chunk2 = np.concatenate((noise_chunk2a, noise_chunk2b), axis=0)
+    average_distance = (normalized_distance_pot1 + normalized_distance_pot2) / 2
 
-        noisy_audio = audio_chunk + noise_chunk1 + noise_chunk2
-        outdata[:] = noisy_audio
-        audio_callback.current_pos = end_idx - audio_len
+    signal_strength = 1 - average_distance
+    signal_strength = max(0, min(signal_strength, 1))
 
-audio_callback.current_pos = 0
+    return signal_strength
 
-# MQTT-client instellen
-client = mqtt.Client()
-client.on_message = on_message
-
-def mqtt_thread():
+def publish_status(client, status):
+    """
+    Publiceer een statusbericht naar `mqtt/defcon/ch1/status`.
+    """
     try:
-        client.connect(MQTT_BROKER, 1883, 60)
+        message = json.dumps({"status": status})
+        client.publish(TOPIC_CH1_STATUS, message)
+        print(f"[MQTT] Status gepubliceerd: {message}")
     except Exception as e:
-        print(f"Kan niet verbinden met broker: {e}")
-        exit(1)
-    client.subscribe(TOPIC)
-    client.loop_forever()
+        print(f"[Error] Kan status niet publiceren: {e}")
 
-# Start MQTT in een aparte thread
-threading.Thread(target=mqtt_thread).start()
+def play_audio(client):
+    """
+    Speelt audio af en combineert deze met ruis.
+    Ruisniveau wordt dynamisch aangepast op basis van potentiometerwaarden.
+    """
+    global correct_position_start
+    try:
+        data, fs = sf.read(AUDIO_FILE, dtype='float32')
+        if len(data.shape) == 1:
+            data = np.column_stack((data, data))
 
-# Start audio stream
-try:
-    with sd.OutputStream(channels=data.shape[1], samplerate=fs, callback=audio_callback):
-        print("Audio afspelen gestart. Druk op Ctrl+C om te stoppen.")
-        while True:
-            time.sleep(1)
-except KeyboardInterrupt:
-    print("Programma gestopt door gebruiker")
+        data *= 2.0  # Verhoog volume met factor 2
+        noise = np.random.uniform(-1, 1, data.shape)
+
+        total_frames = len(data)
+
+        def audio_callback(outdata, frames, time_info, status):
+            global correct_position_start
+            if stop_event.is_set():
+                raise sd.CallbackAbort
+
+            frame_start = audio_callback.frame_idx % total_frames
+            frame_end = frame_start + frames
+
+            if frame_end <= total_frames:
+                audio_chunk = data[frame_start:frame_end]
+                noise_chunk = noise[frame_start:frame_end]
+            else:
+                audio_chunk = np.concatenate((data[frame_start:], data[:frame_end - total_frames]))
+                noise_chunk = np.concatenate((noise[frame_start:], noise[:frame_end - total_frames]))
+
+            signal_strength = calculate_noise_level()  # Initialiseer met standaard ruisniveau
+
+            if is_within_tolerance():
+                if correct_position_start is None:
+                    correct_position_start = time.time()
+                elif time.time() - correct_position_start >= REQUIRED_TIME:
+                    signal_strength = 1.0
+                    # Publiceer slechts één keer de "completed" status
+                    if not getattr(audio_callback, 'status_published', False):
+                        publish_status(client, "completed")
+                        audio_callback.status_published = True
+                else:
+                    signal_strength = calculate_noise_level()
+            else:
+                correct_position_start = None
+                audio_callback.status_published = False  # Reset publicatie wanneer tolerantie wordt verlaten
+                signal_strength = calculate_noise_level()
+
+            combined = VOLUME_SCALE * (signal_strength * audio_chunk + (1 - signal_strength) * noise_chunk)
+            outdata[:len(combined)] = np.clip(combined, -1.0, 1.0)
+
+            if len(combined) < frames:
+                outdata[len(combined):] = 0
+
+            audio_callback.frame_idx += frames
+
+        audio_callback.frame_idx = 0
+        audio_callback.status_published = False
+
+        with sd.OutputStream(callback=audio_callback, samplerate=fs, channels=data.shape[1], blocksize=1024):
+            while active_event.is_set() and not stop_event.is_set():
+                time.sleep(0.1)
+    except FileNotFoundError:
+        print(f"[Error] Audiobestand niet gevonden: {AUDIO_FILE}")
+    except sd.PortAudioError as e:
+        print(f"[Error] Geluidsstream fout: {e}")
+
+def start_mqtt(client):
+    """
+    Start de MQTT-client en luistert naar berichten.
+    """
+    try:
+        client.on_message = mqtt_on_message
+        client.connect(MQTT_BROKER, MQTT_PORT)
+        client.subscribe([(TOPIC_VALUES, 0), (TOPIC_CONTROL, 0), (TOPIC_CH1_CONTROL, 0)])
+        print("[MQTT] Verbonden met broker")
+        client.loop_forever()
+    except Exception as e:
+        print(f"[Error] Fout bij MQTT verbinding of abonnement: {e}")
+
+def start():
+    """
+    Start de hoofdthread en initialiseert audio en MQTT.
+    Wacht op een startcommand om audio te starten.
+    """
+    client = mqtt.Client()
+    threading.Thread(target=start_mqtt, args=(client,), daemon=True).start()
+    while True:
+        if active_event.is_set():
+            play_audio(client)
+        else:
+            time.sleep(0.1)
+
+if __name__ == "__main__":
+    try:
+        start()
+    except KeyboardInterrupt:
+        print("[Programma] Afsluiten op verzoek")
+    except Exception as e:
+        print(f"[Error] Onverwachte fout: {e}")
