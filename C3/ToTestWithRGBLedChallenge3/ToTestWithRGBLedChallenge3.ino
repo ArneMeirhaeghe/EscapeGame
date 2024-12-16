@@ -1,103 +1,126 @@
+#include <Wire.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 
-// WiFi en MQTT configuratie
-const char* ssid = "RPI5-DiFi";
-const char* password = "ChangeMe";
-const char* mqtt_server = "10.3.141.1";
-const int mqtt_port = 1885;
+// WiFi and MQTT Configuration
+const char* ssid = "DFCN_DiFi";
+const char* password = "azerty123";
+const char* mqtt_server = "192.168.1.100";
+const int mqtt_port = 1883;
 
-// MQTT topics
-const char* mqtt_control_topic = "mqtt/defcon/ch3/control";    // Voor startcommando's
-const char* mqtt_reset_topic = "mqtt/defcon/control";          // Voor resetcommando's
-const char* mqtt_status_topic = "mqtt/defcon/ch3/status";      // Voor statusupdates
+const char* hostname = "ESP32-CH3";
+
+// MQTT Topics
+const char* mqtt_reset_topic = "mqtt/defcon/control";  // For reset command
+const char* mqtt_control_topic = "mqtt/defcon/ch3/control";  // For start command
+const char* mqtt_publish_topic = "mqtt/defcon/ch3/status";
+const char* mqtt_connected_topic = "mqtt/defcon/ch3/connected";
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-// Pinconfiguratie
-const int reedSwitchPins[7] = {2, 3, 4, 5, 6, 7, 8};  // Pinnen voor reed switches
-const int relayPin = 12;                              // Pin voor het relais
-const int keySwitchPin = 9;                           // Pin voor het sleutelcontact
+// Pins and Configuration
+const int reedSwitchPins[7] = {2, 3, 4, 5, 6, 7, 8}; // Pins for reed switches
+const int relayPin = 12;                            // Relay pin
+const int keySwitchPin = 9;                         // Key switch pin
 
-// Statusvariabelen
-bool systemActive = false;     // True wanneer de challenge actief is
-bool isCompleted = false;      // True wanneer de challenge is voltooid
-bool lastAllClosed = false;    // Voor het detecteren van statuswijzigingen van de reed switches
-
-// Houdt de vorige status van elke reed switch bij
-bool lastReedStates[7];
+// State Variables
+bool systemStarted = false;
+bool isCompleted = false;
+bool lastAllClosed = false;                         // Tracks if all switches are closed
+bool lastReedStates[7];                             // Stores previous reed states
 
 void setup() {
   Serial.begin(115200);
+  Serial.println("Initializing system...");
 
-  // WiFi en MQTT setup
-  connectToWiFi();
-  client.setServer(mqtt_server, mqtt_port);
-  client.setCallback(mqttCallback);
+  setupWiFi();
+  setupMQTT();
 
-  // Pin setup
+  // Initialize reed switch and key switch pins
   for (int i = 0; i < 7; i++) {
     pinMode(reedSwitchPins[i], INPUT_PULLUP);
-    lastReedStates[i] = digitalRead(reedSwitchPins[i]);
+    lastReedStates[i] = (digitalRead(reedSwitchPins[i]) == LOW);
   }
-  pinMode(relayPin, OUTPUT);
-  digitalWrite(relayPin, LOW); // Relais uit bij start
   pinMode(keySwitchPin, INPUT_PULLUP);
 
-  Serial.println("Setup voltooid. Wacht op startcommando.");
+  // Initialize relay pin
+  pinMode(relayPin, OUTPUT);
+  digitalWrite(relayPin, LOW);
+
+  Serial.println("Setup complete. Waiting for MQTT message...");
 }
 
 void loop() {
-  // Alleen proberen te herverbinden als we niet verbonden zijn
-  if (!client.connected()) {
+  if (!client.connected() && !isCompleted) {
     reconnectMQTT();
   }
   client.loop();
 
-  if (systemActive && !isCompleted) {
-    checkSwitches();
+  if (systemStarted && !isCompleted) {
+    checkSwitchStates();
   }
+}
+
+void setupWiFi() {
+  Serial.println("Disconnecting WiFi...");
+  WiFi.disconnect();
+  delay(100);
+
+  Serial.print("Connecting to WiFi...");
+  WiFi.setHostname(hostname);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("Connected!");
+}
+
+void setupMQTT() {
+  client.setServer(mqtt_server, mqtt_port);
+  client.setCallback(mqttCallback);
 }
 
 void reconnectMQTT() {
   while (!client.connected()) {
-    Serial.print("Verbinden met MQTT...");
     if (client.connect("ESP32_Client")) {
-      Serial.println("Verbonden met MQTT.");
-
-      // Abonneer op control en reset topics
       client.subscribe(mqtt_control_topic);
       client.subscribe(mqtt_reset_topic);
-      Serial.println("Geabonneerd op control en reset topics.");
+      Serial.println("MQTT Connected!");
+
+      // Send connected status as JSON
+      DynamicJsonDocument doc(256);
+      doc["connected"] = true;
+      String jsonMessage;
+      serializeJson(doc, jsonMessage);
+      client.publish(mqtt_connected_topic, jsonMessage.c_str());
+
+      Serial.print("Connected message sent: ");
+      Serial.println(jsonMessage);
     } else {
-      Serial.print("MQTT-verbinding mislukt, rc=");
+      Serial.print("Failed, rc=");
       Serial.print(client.state());
-      Serial.println(". Opnieuw proberen in 5 seconden.");
+      Serial.println(" trying again in 5 seconds");
       delay(5000);
     }
   }
 }
 
-void checkSwitches() {
-  // Controleer of het sleutelcontact is geactiveerd
-  if (digitalRead(keySwitchPin) == LOW) {
-    // Sleutelcontact is aan
+void checkSwitchStates() {
+  if (digitalRead(keySwitchPin) == LOW) {  // Key switch must be active
     bool allClosed = true;
 
-    // Controleer elke reed switch
     for (int i = 0; i < 7; i++) {
       bool currentState = (digitalRead(reedSwitchPins[i]) == LOW);
       if (currentState != lastReedStates[i]) {
-        // Status van reed switch is veranderd
         Serial.print("Reed switch ");
         Serial.print(i + 1);
-        Serial.print(" is nu ");
-        Serial.println(currentState ? "GESLOTEN" : "OPEN");
+        Serial.print(" is now ");
+        Serial.println(currentState ? "CLOSED" : "OPEN");
         lastReedStates[i] = currentState;
       }
-
       if (!currentState) {
         allClosed = false;
       }
@@ -107,28 +130,23 @@ void checkSwitches() {
       if (!isCompleted) {
         onComplete();
       }
-    } else {
-      if (lastAllClosed != allClosed) {
-        // Status gewijzigd van alle gesloten naar niet alle gesloten
-        sendMQTTStatus("incorrect");
-        Serial.println("Status gewijzigd naar incorrect.");
-      }
+    } else if (lastAllClosed != allClosed) {
+      sendMQTTStatus("incorrect");
+      Serial.println("Status changed to incorrect.");
     }
     lastAllClosed = allClosed;
-  } else {
-    // Sleutelcontact is uit; geen actie
   }
 }
 
 void onComplete() {
   isCompleted = true;
-  systemActive = false;
+  systemStarted = false;
 
-  // Verstuur correct status
+  // Send correct status
   sendMQTTStatus("correct");
-  Serial.println("Alle reed switches maken contact. Challenge voltooid!");
+  Serial.println("All reed switches closed. Challenge complete!");
 
-  // Activeer relais gedurende 3 seconden
+  // Activate relay for 3 seconds
   digitalWrite(relayPin, HIGH);
   delay(3000);
   digitalWrite(relayPin, LOW);
@@ -141,61 +159,40 @@ void sendMQTTStatus(const char* status) {
   String jsonData;
   serializeJson(doc, jsonData);
 
-  client.publish(mqtt_status_topic, jsonData.c_str());
-  Serial.print("Verzonden naar MQTT: ");
+  client.publish(mqtt_publish_topic, jsonData.c_str());
+  Serial.print("Sent to MQTT: ");
   Serial.println(jsonData);
+}
+
+void resetSystem() {
+  systemStarted = false;
+  isCompleted = false;
+  lastAllClosed = false;
+
+  // Reset reed switch states
+  for (int i = 0; i < 7; i++) {
+    lastReedStates[i] = (digitalRead(reedSwitchPins[i]) == LOW);
+  }
+
+  Serial.println("System reset via MQTT.");
 }
 
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
   String message = "";
-  for (unsigned int i = 0; i < length; i++) {
+  for (int i = 0; i < length; i++) {
     message += (char)payload[i];
   }
 
-  Serial.print("Ontvangen MQTT-bericht op topic ");
-  Serial.print(topic);
-  Serial.print(": ");
-  Serial.println(message);
-
-  DynamicJsonDocument doc(128);
+  DynamicJsonDocument doc(256);
   if (deserializeJson(doc, message) == DeserializationError::Ok) {
-    const char* command = doc["command"];
     String topicStr = String(topic);
 
-    if (topicStr == mqtt_control_topic && strcmp(command, "start") == 0) {
-      onStart();
-    } else if (topicStr == mqtt_reset_topic && strcmp(command, "reset") == 0) {
-      onReset();
+    if (topicStr == mqtt_control_topic && doc["command"] == "start") {
+      systemStarted = true;
+      isCompleted = false;
+      Serial.println("System started via MQTT.");
+    } else if (topicStr == mqtt_reset_topic && doc["command"] == "reset") {
+      resetSystem();
     }
   }
-}
-
-void onStart() {
-  if (!isCompleted) {
-    systemActive = true;
-    Serial.println("Challenge gestart. Monitoring van reed switches begonnen.");
-  }
-}
-
-void onReset() {
-  systemActive = false;
-  isCompleted = false;
-  lastAllClosed = false;
-
-  // Reset de status van de reed switches
-  for (int i = 0; i < 7; i++) {
-    lastReedStates[i] = digitalRead(reedSwitchPins[i]);
-  }
-
-  Serial.println("Systeem gereset. Wacht op startcommando.");
-}
-
-void connectToWiFi() {
-  Serial.print("Verbinden met WiFi...");
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("\nVerbonden met WiFi.");
 }

@@ -12,7 +12,7 @@ const int mqtt_port = 1883;
 const char* hostname = "ESP32-CH2";
 
 const char* mqtt_reset_topic = "mqtt/defcon/control";  // For reset command
-const char* mqtt_topic = "mqtt/defcon/ch2/control";      // For start command
+const char* mqtt_topic = "mqtt/defcon/ch2/control";   // For start command
 const char* mqtt_publish_topic = "mqtt/defcon/ch2/status";
 const char* mqtt_connected_topic = "mqtt/defcon/ch2/connected";
 
@@ -21,8 +21,13 @@ PubSubClient client(espClient);
 
 // Pins and target configuration
 const int buttonPins[8] = {9, 8, 7, 6, 5, 4, 3, 2};  // Pins D2 to D9
-const int relayPin = 12;                             // Pin connected to the relay
-const byte targetNumber = 3;                         // Target number
+const int relayPin = 1;                             // Pin connected to the relay
+const byte targetNumber = 169;                         // Target number
+
+// RGB LED Pins
+const int redPin = 13;   // Pin for red part of RGB LED
+const int greenPin = 12; // Pin for green part of RGB LED
+const int bluePin = 11;  // Pin for blue part of RGB LED
 
 // State variables
 bool systemStarted = false;
@@ -47,6 +52,14 @@ void setup() {
   pinMode(relayPin, OUTPUT);
   digitalWrite(relayPin, LOW);  // Relay starts in the closed state
 
+  // Initialize RGB LED pins
+  pinMode(redPin, OUTPUT);
+  pinMode(greenPin, OUTPUT);
+  pinMode(bluePin, OUTPUT);
+
+  // Set default LED color to red
+  setRGBColor(255, 0, 0);
+
   Serial.println("Setup complete. Waiting for MQTT message...");
 }
 
@@ -59,6 +72,9 @@ void loop() {
   if (systemStarted && !systemStopped) {
     checkButtonStates();
   }
+
+  // Update RGB LED state
+  updateLEDState();
 }
 
 void setupWiFi() {
@@ -86,7 +102,6 @@ void reconnectMQTT() {
     if (client.connect("ESP32_Client")) {
       client.subscribe(mqtt_topic);
       client.subscribe(mqtt_reset_topic);
-      Serial.println("MQTT Connected!");
 
       // Send connected status as JSON
       DynamicJsonDocument doc(256);
@@ -95,8 +110,6 @@ void reconnectMQTT() {
       serializeJson(doc, jsonMessage);
       client.publish(mqtt_connected_topic, jsonMessage.c_str());
 
-      Serial.print("Connected message sent: ");
-      Serial.println(jsonMessage);
     } else {
       Serial.print("Failed, rc=");
       Serial.print(client.state());
@@ -164,6 +177,27 @@ void resetSystem() {
   lastButtonsState = 255;
   closeRelay();
   Serial.println("System reset via MQTT.");
+}
+
+// Function to set RGB LED color
+void setRGBColor(int red, int green, int blue) {
+  analogWrite(redPin, red);
+  analogWrite(greenPin, green);
+  analogWrite(bluePin, blue);
+}
+
+// Function to update RGB LED state
+void updateLEDState() {
+  if (!systemStarted) {
+    // Red LED (system not started)
+    setRGBColor(255, 0, 0);
+  } else if (systemStarted && !isCompleted) {
+    // Orange LED (system started)
+    setRGBColor(255, 165, 0);
+  } else if (isCompleted) {
+    // Green LED (system completed)
+    setRGBColor(0, 255, 0);
+  }
 }
 
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
