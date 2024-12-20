@@ -111,6 +111,8 @@ void setupWiFi() {
     Serial.print(".");
   }
   Serial.println("\nWiFi connected!");
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP());
 }
 
 void setupMQTT() {

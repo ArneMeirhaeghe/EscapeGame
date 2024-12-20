@@ -127,6 +127,19 @@ const subscribeToTopics = () => {
 	});
 };
 
+// Handle MQTT client reconnection
+const handleMqttReconnection = () => {
+	const client = mqttSingleton.getClient();
+	client.on('offline', () => {
+		console.log('MQTT client offline, attempting to reconnect...');
+		client.reconnect();
+	});
+	client.on('error', (error) => {
+		console.error('MQTT client error:', error);
+		client.reconnect();
+	});
+};
+
 // Define routes
 app.get("/", (req, res) => {
 	res.send("The LED API is working!");
@@ -145,6 +158,7 @@ httpServer.listen(PORT, () => {
 	console.log(`Server listening on port ${PORT}`);
 	// Subscribe to the topics when the server starts
 	subscribeToTopics();
+	handleMqttReconnection();
 });
 
 // Export app for testing purposes
