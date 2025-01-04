@@ -37,18 +37,18 @@ unsigned long lastMsgTime = 0;
 const long interval = 500; // Interval voor berichten
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   delay(2000); // Wacht 2 seconden
   Serial.println("Initializing system...");
 
-  Serial.println("Before WiFi setup");
   setupWiFi();
-  Serial.println("After WiFi setup, before MQTT setup");
   setupMQTT();
-  Serial.println("After MQTT setup");
-
   publishConnectedStatus();
   Serial.println("Setup complete. Waiting for MQTT messages...");
+
+  // Start het systeem automatisch
+  systemStarted = true;
+  Serial.println("System started automatically.");
 }
 
 void loop() {
@@ -101,25 +101,31 @@ void readAndPublishPotentiometerValues() {
   if (currentTime - lastMsgTime > interval) {
     lastMsgTime = currentTime;
 
-    int potValue1 = stabilizeValue(analogRead(POT1_PIN));
-    int potValue2 = stabilizeValue(analogRead(POT2_PIN));
+    int potValue1 = analogRead(POT1_PIN);
+    int potValue2 = analogRead(POT2_PIN);
+
+    Serial.print("Raw Pot1 Value: ");
+    Serial.println(potValue1);
+    Serial.print("Raw Pot2 Value: ");
+    Serial.println(potValue2);
 
     if (potValue1 != previousPot1Value || potValue2 != previousPot2Value) {
-      char message[50];
-      snprintf(message, sizeof(message), "%d,%d", potValue1, potValue2);
-      client.publish(mqtt_values_topic, message);
+      StaticJsonDocument<128> doc;
+      doc["x"] = potValue1;
+      doc["y"] = potValue2;
+
+      char buffer[128];
+      serializeJson(doc, buffer);
+
+      client.publish(mqtt_values_topic, buffer);
 
       Serial.print("Published Values: ");
-      Serial.println(message);
+      Serial.println(buffer);
 
       previousPot1Value = potValue1;
       previousPot2Value = potValue2;
     }
   }
-}
-
-int stabilizeValue(int rawValue) {
-  return ((rawValue + 175) / 350) * 350; // Verdeel in ~12 intervallen
 }
 
 void publishConnectedStatus() {
