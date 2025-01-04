@@ -7,6 +7,7 @@ import Challenge5 from "./Components/Challenges/Challenge5";
 import Controls from "./Components/Controls";
 import Terminal from "./Components/Terminal";
 import Timer from "./Components/Timer";
+import Video from "./Components/Video";
 
 function App() {
 	return (
@@ -45,7 +46,9 @@ function App() {
 			<div className="timer font-deg7 font-bold italic flex items-center justify-center">
 				<Timer />
 			</div>
-			<div className="video_feed"></div>
+			<div className="video_feed">
+				<Video />
+			</div>
 			<div className="controls">
 				<Controls />
 			</div>

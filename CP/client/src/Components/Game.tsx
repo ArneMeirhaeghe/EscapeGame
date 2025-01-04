@@ -1,12 +1,26 @@
 import React, { useEffect, useRef, useState } from "react";
 import levels from "../assets/levels.json";
-import "./game.css";
+import "./Game.css";
+import { io } from "socket.io-client";
+import { API_URL } from "../consts";
+import { useNavigate } from "react-router-dom";
+import useSocket from "../Hooks/useSocket";
 
 const GAME_WIDTH = 1920;
 const GAME_HEIGHT = 1080;
 
 
 const Game: React.FC = () => {
+  const navigate = useNavigate();
+  const data = useSocket(API_URL, "ws/defcon/control");
+
+  useEffect(() => {
+		if (data) {
+			console.log("Challenge Data: ", data);
+			navigate("/hints");
+		}
+	}, [data]);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [currentPosition, setCurrentPosition] = useState({ x: 100, y: 100 });
   const [currentDirection, setCurrentDirection] = useState({ x: 1, y: 0 }); // Set initial direction to move right

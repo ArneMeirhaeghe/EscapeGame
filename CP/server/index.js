@@ -90,7 +90,9 @@ const subscribeToTopics = () => {
 	const ch4Handler = new MqttToWebSocketHandler("mqtt/defcon/ch4/steps/status", io, "ws/defcon/ch4/steps/status");
 	const ch5Handler = new MqttToWebSocketHandler("mqtt/defcon/ch5/steps/status", io, "ws/defcon/ch5/steps/status");
 
+	const resetHandler = new MqttToWebSocketHandler("mqtt/defcon/control", io, "ws/defcon/control");
 	const ch1StatusHandler = new MqttToWebSocketHandler("mqtt/defcon/ch1/status", io, "ws/defcon/ch1/status");
+	const ch4StatusHandler = new MqttToWebSocketHandler("mqtt/defcon/ch4/status", io, "ws/defcon/ch4/status");
 
 	const ch1ConnectedHandler = new MqttToWebSocketHandler("mqtt/defcon/ch1/connected", io, "ws/defcon/ch1/connected");
 	const ch2ConnectedHandler = new MqttToWebSocketHandler("mqtt/defcon/ch2/connected", io, "ws/defcon/ch2/connected");
@@ -105,7 +107,9 @@ const subscribeToTopics = () => {
 	ch4Handler.subscribe();
 	ch5Handler.subscribe();
 
+	resetHandler.subscribe();
 	ch1StatusHandler.subscribe();
+	ch4StatusHandler.subscribe();
 
 	ch1ConnectedHandler.subscribe();
 	ch2ConnectedHandler.subscribe();
@@ -130,14 +134,14 @@ const subscribeToTopics = () => {
 // Handle MQTT client reconnection
 const handleMqttReconnection = () => {
 	const client = mqttSingleton.getClient();
-	client.on('offline', () => {
-		console.log('MQTT client offline, attempting to reconnect...');
-		client.reconnect();
-	});
-	client.on('error', (error) => {
-		console.error('MQTT client error:', error);
-		client.reconnect();
-	});
+	// client.on('offline', () => {
+	// 	console.log('MQTT client offline, attempting to reconnect...');
+	// 	client.reconnect();
+	// });
+	// client.on('error', (error) => {
+	// 	console.error('MQTT client error:', error);
+	// 	client.reconnect();
+	// });
 };
 
 // Define routes

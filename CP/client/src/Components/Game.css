@@ -73,7 +73,7 @@ button:hover {
 	background-color: #e67e22;
 }
 
-body {
+/* body {
 	display: flex;
 	justify-content: center;
 	align-items: center;
@@ -82,6 +82,10 @@ body {
 	background-size: 55%;
 	background-repeat: repeat;
 	color: white;
+} */
+
+body {
+	background-color: #040C08;
 }
 
 body::before {

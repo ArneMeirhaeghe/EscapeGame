@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 import { API_URL } from "./consts";
 import { io } from "socket.io-client";
+import useSocket from "./Hooks/useSocket";
+import { useNavigate } from "react-router-dom";
 
 function Hints() {
 	const [hints, setHints] = useState<{ message: string; timestamp: string }[]>([]); // Store sent hints
+	const data = useSocket(API_URL, "ws/defcon/ch4/status");
+	const navigate = useNavigate();
 
 	useEffect(() => {
 		// Fetch the hints when the component mounts or refreshes
@@ -39,8 +43,15 @@ function Hints() {
 		};
 	}, []); // Empty dependency array to run only once on mount
 
+	useEffect(() => {
+		if (data) {
+			console.log("Challenge Data: ", data);
+			navigate("/game");
+		}
+	}, [data]);
+
 	return (
-		<div className="">
+		<div className="w-full">
 			{/* Terminal-like output section */}
 			<div className="flex items-center justify-center text-6xl mt-6 mb-4 text-primary font-terminal">Terminal</div>
 			<div className="mx-4 text-primary text-2xl font-terminal">
