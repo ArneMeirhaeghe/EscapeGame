@@ -1,4 +1,3 @@
-
 #include <Wire.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
@@ -10,7 +9,7 @@ const char* password = "azerty123";
 const char* mqtt_server = "192.168.1.100";
 const int mqtt_port = 1883;
 
-const char* hostname = "Rotating_Disks_ESP_32";
+const char* hostname = "ESP32-CH3";
 
 // MQTT Topics
 const char* mqtt_reset_topic = "mqtt/defcon/control";  // For reset command

@@ -12,9 +12,10 @@ const char* ssid = "DFCN_DiFi";
 const char* password = "azerty123";
 const char* mqtt_server = "192.168.1.100";
 const int mqtt_port = 1883;
-const char* mqtt_topic = "mqtt/defcon/ch5/control";    // For start command
+const char* mqtt_topic = "mqtt/defcon/ch4/control";    // For start command
 const char* mqtt_reset_topic = "mqtt/defcon/control";  // For reset command
-const char* mqtt_publish_topic = "mqtt/defcon/ch5/status";
+const char* mqtt_publish_topic = "mqtt/defcon/ch4/status";
+const char* mqtt_connected_topic = "mqtt/defcon/ch4/connected";
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -304,11 +305,29 @@ void connectToWiFi() {
 
 void reconnectMQTT() {
   while (!client.connected()) {
+    // if (client.connect("Floppy_Client")) {
+    //   client.subscribe(mqtt_topic);        // Subscribe to start topic
+    //   client.subscribe(mqtt_reset_topic);  // Subscribe to reset topic
+    // }
+    // delay(5000);
+
     if (client.connect("Floppy_Client")) {
-      client.subscribe(mqtt_topic);        // Subscribe to start topic
-      client.subscribe(mqtt_reset_topic);  // Subscribe to reset topic
+      client.subscribe(mqtt_topic);
+      client.subscribe(mqtt_reset_topic);
+
+      // Send connected status as JSON
+      DynamicJsonDocument doc(256);
+      doc["connected"] = true;
+      String jsonMessage;
+      serializeJson(doc, jsonMessage);
+      client.publish(mqtt_connected_topic, jsonMessage.c_str());
+
+    } else {
+      Serial.print("Failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" trying again in 5 seconds");
+      delay(5000);
     }
-    delay(5000);
   }
 }
 
