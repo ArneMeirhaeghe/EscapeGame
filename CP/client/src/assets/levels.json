@@ -1,0 +1,72 @@
+[
+	{
+		"name": "Level 1",
+		"startCoords": { "x": 0, "y": 875 },
+		"endCoords": { "x": 1920, "y": 115, "rotation": 180 },
+		"walls": [
+			{ "x": 0, "y": 0, "width": 371, "height": 673 },
+			{ "x": 408, "y": 0, "width": 182, "height": 508 },
+			{ "x": 629, "y": 0, "width": 100, "height": 353 },
+			{ "x": 768, "y": 0, "width": 100, "height": 353 },
+			{ "x": 907, "y": 0, "width": 100, "height": 353 },
+			{ "x": 1043, "y": 0, "width": 140, "height": 243 },
+			{ "x": 1216, "y": 0, "width": 140, "height": 243 },
+			{ "x": 1399, "y": 0, "width": 206, "height": 161 },
+			{ "x": 473, "y": 608, "width": 166, "height": 152 },
+			{ "x": 354, "y": 850, "width": 387, "height": 230 },
+			{ "x": 791, "y": 438, "width": 345, "height": 642 },
+			{ "x": 1185, "y": 500, "width": 345, "height": 580 },
+			{ "x": 1575, "y": 500, "width": 345, "height": 580 },
+			{ "x": 1492, "y": 243, "width": 428, "height": 223 },
+			{ "x": 1177, "y": 342, "width": 743, "height": 124 }
+		],
+		"speed": 5,
+		"backgroundImage": "/levels/level1.png"
+	},
+	{
+		"name": "Level 2",
+		"startCoords": { "x": 0, "y": 875 },
+		"endCoords": { "x": 1920, "y": 115, "rotation": 180 },
+		"walls": [
+			{ "x": 0, "y": 0, "width": 249, "height": 764 },
+			{ "x": 0, "y": 0, "width": 720, "height": 185 },
+			{ "x": 613, "y": 0, "width": 107, "height": 308 },
+			{ "x": 430, "y": 321, "width": 92, "height": 120 },
+			{ "x": 430, "y": 412, "width": 363, "height": 668 },
+			{ "x": 842, "y": 130, "width": 157, "height": 950 },
+			{ "x": 1123, "y": 0, "width": 476, "height": 475 },
+			{ "x": 1078, "y": 475, "width": 408, "height": 149 },
+			{ "x": 1515, "y": 0, "width": 177, "height": 238 },
+			{ "x": 1747, "y": 318, "width": 173, "height": 155 },
+			{ "x": 1641, "y": 559, "width": 171, "height": 262 },
+			{ "x": 1110, "y": 746, "width": 408, "height": 241 },
+			{ "x": 1642, "y": 923, "width": 278, "height": 157 }
+		],
+		"speed": 4,
+		"backgroundImage": "/levels/level2.png"
+	},
+	{
+		"name": "Level 3",
+		"startCoords": { "x": 0, "y": 875 },
+		"endCoords": { "x": 1920, "y": 115, "rotation": 180 },
+		"walls": [
+			{ "x": 0, "y": 0, "width": 458, "height": 688 },
+			{ "x": 322, "y": 894, "width": 300, "height": 185 },
+			{ "x": 409, "y": 522, "width": 667, "height": 261 },
+			{ "x": 733, "y": 522, "width": 343, "height": 457 },
+			{ "x": 733, "y": 627, "width": 767, "height": 156 },
+			{ "x": 1179, "y": 875, "width": 741, "height": 205 },
+			{ "x": 1630, "y": 430, "width": 290, "height": 650 },
+			{ "x": 1752, "y": 376, "width": 168, "height": 120 },
+			{ "x": 1174, "y": 339, "width": 532, "height": 170 },
+			{ "x": 1364, "y": 119, "width": 127, "height": 275 },
+			{ "x": 584, "y": 251, "width": 726, "height": 149 },
+			{ "x": 584, "y": 101, "width": 154, "height": 342 },
+			{ "x": 537, "y": 101, "width": 201, "height": 129 },
+			{ "x": 844, "y": 0, "width": 391, "height": 174 },
+			{ "x": 1589, "y": 0, "width": 162, "height": 174 }
+		],
+		"speed": 4,
+		"backgroundImage": "/levels/level3.png"
+	}
+]
