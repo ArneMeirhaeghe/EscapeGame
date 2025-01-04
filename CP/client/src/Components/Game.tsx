@@ -5,6 +5,7 @@ import "./game.css";
 const GAME_WIDTH = 1920;
 const GAME_HEIGHT = 1080;
 
+
 const Game: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [currentPosition, setCurrentPosition] = useState({ x: 100, y: 100 });
