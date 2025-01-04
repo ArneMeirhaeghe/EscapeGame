@@ -22,7 +22,7 @@ PubSubClient client(espClient);
 // Pins and target configuration
 const int buttonPins[8] = {9, 8, 7, 6, 5, 4, 3, 2};  // Pins D2 to D9
 const int relayPin = 1;                             // Pin connected to the relay
-const byte targetNumber = 169;                         // Target number
+const byte targetNumber = 149;                         // Target number
 
 // RGB LED Pins
 const int redPin = 13;   // Pin for red part of RGB LED
@@ -192,10 +192,10 @@ void setRGBColor(int red, int green, int blue) {
 void updateLEDState() {
   if (!systemStarted) {
     // Red LED (system not started)
-    setRGBColor(255, 0, 0);
+    setRGBColor(0, 0, 0);
   } else if (systemStarted && !isCompleted) {
-    // Orange LED (system started)
-    setRGBColor(255, 165, 0);
+    // red LED (system started)
+    setRGBColor(255, 0, 0);
   } else if (isCompleted) {
     // Green LED (system completed)
     setRGBColor(0, 255, 0);

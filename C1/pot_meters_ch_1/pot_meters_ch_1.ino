@@ -11,7 +11,7 @@ const char* password = "azerty123";
 const char* mqtt_server = "192.168.1.100";
 const int mqtt_port = 1883;
 
-const char* hostname = "ESP32-CH1";
+const char* hostname = "Radio_ESP_32";
 
 // MQTT Topics
 const char* mqtt_reset_topic = "mqtt/defcon/control";       // Reset Command Topic

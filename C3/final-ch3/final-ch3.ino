@@ -1,4 +1,3 @@
-
 #include <Wire.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
@@ -36,6 +35,7 @@ bool systemStarted = false;
 bool isCompleted = false;
 bool lastAllClosed = false;                         // Tracks if all switches are closed
 bool lastReedStates[7];                             // Stores previous reed states
+bool lastKeyState = HIGH;
 
 void setup() {
   Serial.begin(115200);
@@ -60,8 +60,8 @@ void setup() {
   pinMode(greenPin, OUTPUT);
   pinMode(bluePin, OUTPUT);
 
-  // Set default LED color to red
-  setRGBColor(255, 0, 0);
+  // Turn off LED initially
+  setRGBColor(0, 0, 0);
 
   Serial.println("Setup complete. Waiting for MQTT message...");
 }
@@ -76,8 +76,8 @@ void loop() {
     checkSwitchStates();
   }
 
-  // Update RGB LED state
-  updateLEDState();
+  // Continuously monitor the key state for instant LED updates
+  checkKeyState();
 }
 
 void setupWiFi() {
@@ -104,7 +104,7 @@ void setupMQTT() {
 
 void reconnectMQTT() {
   while (!client.connected()) {
-    if (client.connect("ESP32_Client")) {
+    if (client.connect("Rotating_Disks_ESP_32")) {
       client.subscribe(mqtt_control_topic);
       client.subscribe(mqtt_reset_topic);
 
@@ -124,7 +124,7 @@ void reconnectMQTT() {
 }
 
 void checkSwitchStates() {
-  if (digitalRead(keySwitchPin) == LOW) {  // Key switch must be active
+  if (lastKeyState == LOW && !isCompleted) {
     bool allClosed = true;
 
     for (int i = 0; i < 7; i++) {
@@ -153,12 +153,22 @@ void checkSwitchStates() {
   }
 }
 
+void checkKeyState() {
+  bool keyState = digitalRead(keySwitchPin);
+  if (keyState != lastKeyState) {
+    Serial.print("Key state changed: ");
+    Serial.println(keyState == LOW ? "ON" : "OFF");
+    lastKeyState = keyState;
+    updateLEDState();
+  }
+}
+
 void onComplete() {
   isCompleted = true;
   systemStarted = false;
 
   // Send correct status
-  sendMQTTStatus("correct");
+  sendMQTTStatus("completed");
   Serial.println("All reed switches closed. Challenge complete!");
 
   setRGBColor(0, 255, 0);
@@ -208,6 +218,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       systemStarted = true;
       isCompleted = false;
       Serial.println("System started via MQTT.");
+      setRGBColor(255, 0, 0);
     } else if (topicStr == mqtt_reset_topic && doc["command"] == "reset") {
       resetSystem();
     }
@@ -216,6 +227,12 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
 // Function to set RGB LED color
 void setRGBColor(int red, int green, int blue) {
+  Serial.print("Updating LED color to: R=");
+  Serial.print(red);
+  Serial.print(" G=");
+  Serial.print(green);
+  Serial.print(" B=");
+  Serial.println(blue);
   analogWrite(redPin, red);
   analogWrite(greenPin, green);
   analogWrite(bluePin, blue);
@@ -223,14 +240,15 @@ void setRGBColor(int red, int green, int blue) {
 
 // Function to update RGB LED state
 void updateLEDState() {
-  if (!systemStarted) {
-    // Red LED (system not started)
-    setRGBColor(255, 0, 0);
+  if (!systemStarted && !isCompleted) {
+    setRGBColor(0, 0, 0);
   } else if (systemStarted && !isCompleted) {
-    // Orange LED (system started)
-    setRGBColor(255, 165, 0);
+    if (lastKeyState == LOW) {
+      setRGBColor(255, 165, 0);
+    } else {
+      setRGBColor(255, 0, 0);
+    }
   } else if (isCompleted) {
-    // Green LED (system completed)
     setRGBColor(0, 255, 0);
   }
 }
